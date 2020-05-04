@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+</head>
+<body>
+<script src="simplepeer.min.js"></script>
+<script type="text/javascript">
+	var PEERS=[];var me=0;
+
+	navigator.mediaDevices.getUserMedia({
+  		video: true,
+  		audio: true
+	}).then(gotMedia).catch(() => {});
+
+	function gotMedia(stream){
+		console.log("[*]got streams")
+
+	}
+
+	ws=new WebSocket("ws://"+document.location.host+document.location.pathname);
+
+	ws.onmessage=function(data){
+		console.log(data.data)
+		msg=JSON.parse(data.data);
+		if(msg.action=="add_user"){
+			for(let i=0;i<msg.num;i++){
+				create_peer(PEERS,i,true);
+			};
+			PEERS.push("me")
+			me=PEERS.length-1
+			return;
+
+		}
+		else if(msg.type=="offer"){
+			if(PEERS[msg.from]==undefined){
+				create_peer(PEERS,msg.from,false);
+			};	
+		}
+		//from=msg.from
+		//delete msg.id;delete msg.from;
+		PEERS[msg.from].signal(msg);
+		
+
+	}
+
+
+	function create_peer(peer,id,init){
+		peer[id]=new SimplePeer({initiator:init});
+		peer[id].on("signal",function(data){
+			data.id=id;
+			data.from=me;
+			ws.send(JSON.stringify(data));
+			console.log("-->"+data);
+		});
+
+		peer[id].on("connect",function(){
+			console.log("[+]connection with:"+ id)
+		})
+
+		video=document.createElement("video");
+		peer[id].on("stream",function(stream){
+			video.srcObject=stream;
+		});
+		document.body.appendChild(video);
+
+		
+	}
+
+console.log(PEERS)
+
+
+
+</script>
+</body>
+</html>
